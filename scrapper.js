@@ -21,6 +21,7 @@ process.on('message',function(msg){
         function randomIntFromInterval(min, max) {
             return Math.floor(Math.random() * (max - min + 1) + min)
         }
+        
 
         let browser; // Declare the browser variable here
         // Start a timer to stop the execution after the specified time
@@ -109,80 +110,121 @@ process.on('message',function(msg){
                     }
                 });
                 await sleep(10000)
-                await page.waitForSelector('[data-qa-role="carousel-contact"]', { visible: true ,timeout:0});
-                let carouselItems = await page.$$('[data-qa-role="carousel-contact"]');
-                let remainingIndexes=new Array(carouselItems.length )
-                for(let i=0;i<remainingIndexes.length;i++){
-                    remainingIndexes[i]=i
+                await page.waitForSelector('.scrollable-carousel-item [data-qa-role="contact-avatar"]:not(.contact-avatar--with-multiplicator)', { visible: true ,timeout:0});
+                //[data-qa-role="carousel-contact"]
+                const count = await page.evaluate(() => {
+                    const element = document.querySelector('.contact-tabs__section--matches .contact-tabs__section-title-hint .p-2.text-color-gray-dark');
+                    let text=  element ? element.textContent : null;
+                    if(text){
+                        return parseInt(text.substring(1,text.length-1))
+                    }
+                    return 0
+                });
+
+                let groups=Math.ceil(count/4)
+                async function clickOnElement(elem, x = null, y = null) {
+                    const rect = await page.evaluate(el => {
+                    const { top, left, width, height } = el.getBoundingClientRect();
+                    return { top, left, width, height };
+                    }, elem);
+                
+                    // Use given position or default to center
+                    const _x = x !== null ? x : rect.width / 2;
+                    const _y = y !== null ? y : rect.height / 2;
+                
+                    await page.mouse.click(rect.left + _x, rect.top + _y);
                 }
-                async function clickRandomIndex(){
-                    carouselItems = await page.$$('[data-qa-role="carousel-contact"]');
-                    let selectedIndex=Math.floor(Math.random()*(remainingIndexes.length-1))
-                    await sleep(5000)
-                    await carouselItems[remainingIndexes[selectedIndex]].click()
-
-                    remainingIndexes.splice(selectedIndex,1)
-                }
-                for(let i=0;i<messages_len;i++){
-                    try{
-                        if(!remainingIndexes.length){
-                            break
-                        }
-                        await sleep(1500)
-                        await clickRandomIndex()
+                for(let k=0;k<groups;k++){
+                    let remainingIndexes=new Array(4)
+                    for(let i=0;i<remainingIndexes.length;i++){
+                        let index=i+(k*4)
+                        remainingIndexes[i]=index<count?index:-1
+                    }
+                    remainingIndexes=remainingIndexes.filter((num)=>num>-1)
+                    async function clickRandomIndex(){
                         
-                        sleep(randomIntFromInterval(1000,2000))
+                        let carouselItems = await page.$$('.scrollable-carousel-item [data-qa-role="contact-avatar"]:not(.contact-avatar--with-multiplicator)');
                         
-                        try {
-                            await page.waitForSelector('.textarea__input',{visible:true});
-                            let selectedIndex=Math.floor(Math.random()*(messages.length-1))
-                            const name = await page.evaluate(() => {
-                                const element = document.querySelector('.messages-header__name.is-clickable .header-2');
-                                return element ? element.textContent : null;
-                            });
-                            let msg=messages[selectedIndex]
-                            msg=msg.replace('<name>',name)
-                            msg=msg.trim()
-                            await page.focus('.textarea__input');
-                            await sleep(2000)
-                            for (let j = 0; j < msg.length; j++) {
-                                const char = msg.charAt(j);
-                                //Keyboard Typing Delay
-                                await sleep(100)
-                                await page.keyboard.type(char);
-                            }
-                            messages.splice(selectedIndex,1)
+                        let selectedIndex=Math.floor(Math.random()*(remainingIndexes.length-1))
+                        await sleep(5000)
+                        await clickOnElement(await carouselItems[remainingIndexes[selectedIndex]])
 
-                            //Second Message
-                            
-                            await page.waitForSelector(`.message-field__send`, { visible: true });
-                            await sleep(1500)
-                            await page.click(`.message-field__send`);
-
-                            await page.focus('.textarea__input');
-                            await sleep(2000)
-                            for (let j = 0; j < SNAPCHAT_ID.length; j++) {
-                                const char = SNAPCHAT_ID.charAt(j);
-                                //Keyboard Typing Delay
-                                await sleep(100)
-                                await page.keyboard.type(char);
+                        remainingIndexes.splice(selectedIndex,1)
+                    }
+                    for(let i=0;i<messages_len;i++){
+                        try{
+                            if(!remainingIndexes.length){
+                                break
                             }
-                            
-                            await page.waitForSelector(`.message-field__send`, { visible: true });
                             await sleep(1500)
-                            await page.click(`.message-field__send`);
-                            await sleep(5000)
-                        } catch (error) {
+                            await clickRandomIndex()
+                            
+                            sleep(randomIntFromInterval(1000,2000))
+                            
+                            try {
+                                await page.waitForSelector('.textarea__input',{visible:true});
+                                let selectedIndex=Math.floor(Math.random()*(messages.length-1))
+                                const name = await page.evaluate(() => {
+                                    const element = document.querySelector('.messages-header__name.is-clickable .header-2');
+                                    return element ? element.textContent : null;
+                                });
+                                let msg=messages[selectedIndex]
+                                msg=msg.replace('<name>',name)
+                                msg=msg.trim()
+                                await page.focus('.textarea__input');
+                                await sleep(2000)
+                                for (let j = 0; j < msg.length; j++) {
+                                    const char = msg.charAt(j);
+                                    //Keyboard Typing Delay
+                                    await sleep(100)
+                                    await page.keyboard.type(char);
+                                }
+                                messages.splice(selectedIndex,1)
+
+                                //Second Message
+                                
+                                await page.waitForSelector(`.message-field__send`, { visible: true });
+                                await sleep(1500)
+                                await page.click(`.message-field__send`);
+
+                                await page.focus('.textarea__input');
+                                await sleep(2000)
+                                for (let j = 0; j < SNAPCHAT_ID.length; j++) {
+                                    const char = SNAPCHAT_ID.charAt(j);
+                                    //Keyboard Typing Delay
+                                    await sleep(100)
+                                    await page.keyboard.type(char);
+                                }
+                                
+                                await page.waitForSelector(`.message-field__send`, { visible: true });
+                                await sleep(1500)
+                                await page.click(`.message-field__send`);
+                                await sleep(5000)
+                            } catch (error) {
+                                i--
+                                
+                            }
+                        }catch(e){
+                            console.log(e)
                             i--
                             
                         }
-                    }catch(e){
-                        console.log(e)
-                        i--
                         
                     }
-                    
-                } 
+                    try{
+                        let carouselItems = await page.$$('.scrollable-carousel-item [data-qa-role="contact-avatar"]:not(.contact-avatar--with-multiplicator)');
+                        await sleep(5000)
+                        await clickOnElement(await carouselItems[(k*4)+0])
+                        await page.$eval('.scrollable-carousel__control.scrollable-carousel__control--next', el => {
+                            if(el){
+                                el.click()
+                            }
+                        });
+                    } catch(e){
+
+                    }   
+                }
+                
                 
             })
 
